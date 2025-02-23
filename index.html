@@ -121,29 +121,81 @@
             font-size: 14px;
         }
 
-        /* Body background with backdrop image (existing, unchanged for brevity) */
-        body {
-            background-color: #1E1B1B; /* Default background if no backdrop */
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            transition: background-image 0.5s ease; /* Smooth transition for backdrop changes */
+        /* Welcome Screen Styling */
+        .welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(30, 27, 27, 0.9); /* Dark background with slight transparency */
+            z-index: 1100; /* Above other elements */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-family: 'Sigmar', cursive;
+            animation: fadeIn 1s ease-in;
         }
 
-        body.backdrop {
-            background-color: rgba(30, 27, 27, 0.8); /* Dark overlay for readability */
-            background-blend-mode: overlay; /* Blend backdrop with dark overlay */
+        .welcome-screen.hidden {
+            display: none;
         }
 
-        /* Ensure container and content remain readable over backdrop (existing, unchanged) */
-        .container {
-            background-color: rgba(30, 27, 27, 0.9); /* Slightly opaque container to ensure readability */
+        .welcome-content {
+            text-align: center;
             padding: 20px;
-            border-radius: 10px;
+            max-width: 80%;
         }
 
-        /* Responsive adjustments for mobile (existing + backdrop, unchanged) */
+        .welcome-content h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .welcome-content p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+
+        .welcome-btn {
+            background-color: #6EB423;
+            color: black;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            font-family: 'Sigmar', cursive;
+            transition: background-color 0.3s;
+        }
+
+        .welcome-btn:hover {
+            background-color: #5A9C1A;
+        }
+
+        /* Animation for fade in */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Responsive adjustments for mobile (welcome screen) */
         @media (max-width: 600px) {
+            .welcome-content h1 {
+                font-size: 1.8em;
+            }
+
+            .welcome-content p {
+                font-size: 1em;
+            }
+
+            .welcome-btn {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+
             .popup {
                 width: 90%;
                 padding: 15px;
@@ -168,16 +220,21 @@
                 font-size: 12px;
                 padding: 3px 8px;
             }
-
-            .container {
-                padding: 10px;
-            }
         }
     </style>
 </head>
 <body>
+    <!-- Welcome Screen -->
+    <div class="welcome-screen">
+        <div class="welcome-content">
+            <h1>Welcome to Film Kitchen!</h1>
+            <p>Cook your perfect movie recipe by selecting a language, genre, and rating, then click "COOK" to discover released films and their viewing options. Get started now!</p>
+            <button class="welcome-btn" onclick="hideWelcome()">Get Started</button>
+        </div>
+    </div>
+
     <div class="container">
-        <h1>Film Cooker</h1>
+        <h1>Film Kitchen</h1>
         <div class="options">
             <select class="option-select" name="language" id="languageSelect">
                 <option value="">LANGUAGE</option>
@@ -268,22 +325,36 @@
         // Placeholder image for when no poster is available
         const PLACEHOLDER_POSTER = './images/placeholder-poster.jpg'; // Ensure this image exists in your images folder
 
-        // PHP endpoint URL (update this to match your server setup, e.g., http://localhost/php/tmdb_api.php)
-        const PHP_ENDPOINT = './api/index.php'; // Adjust this to your PHP server URL
+        // TMDb API configuration
+        const TMDB_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmOWVmNDdkMjU0ZTFmNzg4YzgyY2QzY2Y5NDc5NzNhNCIsIm5iZiI6MTczNjE2MzI1MS4xMiwic3ViIjoiNjc3YmJmYjNkOWIwZTcwZDVkNzI0OGVmIiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.yHGQcDFXiaghtuwLizkHL9YlqS6k0p7aapzgnrSFWxI'; // Replace with your TMDb API key
+        const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-        // Global variable to store movie list, current index, selected genres, and selected rating
+        // Global variables to store movie list, current index, selected genres, selected rating, and current page
         let movieList = [];
         let currentIndex = -1;
         let selectedGenres = [];
         let selectedRating = '';
+        let currentPage = 1;
+        let totalPages = 1; // Will be updated after the first API call
 
-        // Function to fetch data from PHP endpoint
-        async function fetchFromPHP(url, params = {}) {
-            const queryString = new URLSearchParams(params).toString();
-            const fullUrl = queryString ? `${url}?${queryString}` : url;
+        // Function to hide the welcome screen
+        function hideWelcome() {
+            const welcomeScreen = document.querySelector('.welcome-screen');
+            welcomeScreen.classList.add('hidden');
+            document.getElementById('initialMessage').style.display = 'block'; // Show initial message
+        }
+
+        // Function to fetch data from TMDb API
+        async function fetchFromTmdb(url) {
             try {
-                const response = await fetch(fullUrl);
-                if (!response.ok) throw new Error('Failed to fetch data from PHP endpoint');
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch data from TMDb');
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
                 return data;
@@ -295,7 +366,8 @@
 
         // Function to fetch and populate genres
         async function fetchGenres() {
-            const data = await fetchFromPHP(PHP_ENDPOINT, { action: 'genres' });
+            const url = `${TMDB_BASE_URL}/genre/movie/list?language=en-US&api_key=${TMDB_API_KEY}`;
+            const data = await fetchFromTmdb(url);
             if (data && data.genres) {
                 const genreCheckboxes = document.getElementById('genreCheckboxes');
                 data.genres.forEach(genre => {
@@ -312,7 +384,8 @@
 
         // Function to fetch and populate languages
         async function fetchLanguages() {
-            const data = await fetchFromPHP(PHP_ENDPOINT, { action: 'languages' });
+            const url = `${TMDB_BASE_URL}/configuration/languages?api_key=${TMDB_API_KEY}`;
+            const data = await fetchFromTmdb(url);
             if (data) {
                 const languageSelect = document.getElementById('languageSelect');
                 data.forEach(lang => {
@@ -418,57 +491,93 @@
             snackSection.appendChild(drinkDiv);
         }
 
-        // Function to fetch movie list from PHP endpoint
-        async function fetchMovieList(language, genres, rating) {
-            const params = {
-                action: 'discover',
-                language: language,
-                genres: genres,
-                rating: rating
+        // Function to fetch one page of movie list from TMDb, filtering for released movies only
+        async function fetchMovieList(language, genres, rating, page = 1) {
+            console.log(`Fetching page ${page} with genres: ${genres}, rating: ${rating}, language: ${language}`);
+            // Map rating to TMDb certification (simplified mapping)
+            const certificationMap = {
+                'G': 'G',
+                'PG': 'PG',
+                'PG-13': 'PG-13',
+                'R': 'R'
             };
-            const data = await fetchFromPHP(PHP_ENDPOINT, params);
-            return data.results || [];
-        }
+            const certification = rating ? certificationMap[rating] : '';
 
-        // Function to fetch detailed movie data from PHP endpoint, including watch providers and backdrop
-        async function fetchMovieDetails(movieId, language) {
-            const details = await fetchFromPHP(PHP_ENDPOINT, { action: 'movie_details', movie_id: movieId, language: language });
-            const providers = await fetchFromPHP(PHP_ENDPOINT, { action: 'watch_providers', movie_id: movieId });
+            // Build the API query with multiple genres (URL-encoded with %2C)
+            let url = `${TMDB_BASE_URL}/discover/movie?include_adult=true&include_video=false&language=en-IN&page=${page}&sort_by=popularity.desc&with_genres=${encodeURIComponent(genres)}&with_origin_country=IN&with_original_language=${language}`;
+            // if (certification) {
+            //     url += `&certification_country=US&certification=${certification}`;
+            // }
+            url += `&api_key=${TMDB_API_KEY}`;
 
-            if (!details || details.error) {
-                console.error('Error fetching movie details:', details?.error || 'No details');
-                return null;
+            const data = await fetchFromTmdb(url);
+            if (data && data.results) {
+                // Filter movies to include only those already released (release date in the past)
+                const currentDate = new Date();
+                const releasedMovies = data.results.filter(movie => {
+                    if (!movie.release_date) return false; // Skip movies without a release date
+                    const releaseDate = new Date(movie.release_date);
+                    return releaseDate <= currentDate;
+                });
+
+                totalPages = data.total_pages || 1; // Update total pages from TMDb response (before filtering)
+                console.log(`Page ${page} results: ${releasedMovies.length} released movies, totalPages: ${totalPages}, hasNext check: page < totalPages = ${page < totalPages}, releasedMovies.length > 0 = ${releasedMovies.length > 0}`);
+                return {
+                    movies: releasedMovies,
+                    hasNext: releasedMovies.length > 0 && page < totalPages, // Ensure there are released movies and more pages
+                    hasPrev: page > 1
+                };
             }
-
-            const watchProviders = providers.results?.IN || providers.results?.US || { flatrate: [], rent: [], buy: [] };
-
-            // Get runtime in minutes (from movieDetails.runtime)
-            const runtimeMinutes = details.runtime || 0;
-            const hours = Math.floor(runtimeMinutes / 60);
-            const minutes = runtimeMinutes % 60;
-
-            // Get director (first crew member with job 'Director')
-            const director = details.credits?.crew?.find(member => member.job === 'Director')?.name || 'No director information available';
-
-            return {
-                title: details.title,
-                posterPath: details.poster_path,
-                backdropPath: details.backdrop_path, // Backdrop image path
-                releaseDate: details.release_date,
-                rating: details.adult ? 'R' : (details.certification || 'PG-13'), // Simplified
-                overview: details.overview,
-                cast: details.credits?.cast?.slice(0, 3).map(actor => actor.name).join(', ') || 'No cast information available',
-                runtime: { hours, minutes },
-                director: director,
-                watchProviders: {
-                    flatrate: watchProviders.flatrate || [], // Streaming (e.g., Netflix, Disney+)
-                    rent: watchProviders.rent || [], // Rental options
-                    buy: watchProviders.buy || [] // Purchase options
-                }
-            };
+            console.log(`No results for page ${page}`);
+            return { movies: [], hasNext: false, hasPrev: false };
         }
 
-        // Function to start cooking animation and fetch movie list
+        // Function to fetch detailed movie data for a specific movie, including watch providers
+        async function fetchMovieDetails(movieId, language) {
+            try {
+                const detailsUrl = `${TMDB_BASE_URL}/movie/${movieId}?language=en&append_to_response=credits&api_key=${TMDB_API_KEY}`;
+                const detailsResponse = await fetchFromTmdb(detailsUrl);
+
+                if (!detailsResponse || detailsResponse.error) {
+                    console.error('Error fetching movie details:', detailsResponse?.error || 'No details');
+                    return null;
+                }
+
+                const providersUrl = `${TMDB_BASE_URL}/movie/${movieId}/watch/providers?api_key=${TMDB_API_KEY}`;
+                const providersResponse = await fetchFromTmdb(providersUrl);
+
+                const watchProviders = providersResponse.results?.IN || providersResponse.results?.US || { flatrate: [], rent: [], buy: [] };
+
+                // Get runtime in minutes (from movieDetails.runtime)
+                const runtimeMinutes = detailsResponse.runtime || 0;
+                const hours = Math.floor(runtimeMinutes / 60);
+                const minutes = runtimeMinutes % 60;
+
+                // Get director (first crew member with job 'Director')
+                const director = detailsResponse.credits?.crew?.find(member => member.job === 'Director')?.name || 'No director information available';
+
+                return {
+                    title: detailsResponse.title,
+                    posterPath: detailsResponse.poster_path,
+                    releaseDate: detailsResponse.release_date,
+                    rating: detailsResponse.adult ? 'R' : (detailsResponse.certification || 'PG-13'), // Simplified
+                    overview: detailsResponse.overview,
+                    cast: detailsResponse.credits?.cast?.slice(0, 3).map(actor => actor.name).join(', ') || 'No cast information available',
+                    runtime: { hours, minutes },
+                    director: director,
+                    watchProviders: {
+                        flatrate: watchProviders.flatrate || [], // Streaming (e.g., Netflix, Disney+)
+                        rent: watchProviders.rent || [], // Rental options
+                        buy: watchProviders.buy || [] // Purchase options
+                    }
+                };
+            } catch (error) {
+                console.error('Error fetching movie details:', error);
+                return null; // Handle error gracefully
+            }
+        }
+
+        // Function to start cooking animation and fetch movie list for the first page
         async function startCooking() {
             const initialMessage = document.getElementById('initialMessage');
             const cookingAnimation = document.getElementById('cookingAnimation');
@@ -494,21 +603,23 @@
             document.getElementById('whereToWatch').innerHTML = '';
             document.getElementById('snackSection').innerHTML = '';
 
-            // Fetch movie list based on selections
+            // Fetch first page of movie list based on selections
             const language = document.querySelector('select[name="language"]').value || 'en';
             const genres = selectedGenres.join('%2C') || ''; // URL-encoded genre IDs
             const rating = selectedRating || '';
 
-            movieList = await fetchMovieList(language, genres, rating);
-            currentIndex = 0; // Start with the first movie in the list
+            const { movies, hasNext, hasPrev } = await fetchMovieList(language, genres, rating, 1);
+            movieList = movies;
+            currentIndex = 0; // Start with the first movie on the first page
+            currentPage = 1; // Set current page to 1
 
             // Simulate cooking (2-second delay for animation)
             setTimeout(async () => {
-                cookingAnimation.style.display = 'none';
                 if (movieList.length > 0) {
                     const movie = await fetchMovieDetails(movieList[currentIndex].id, language);
                     if (movie) {
                         // Update movie details
+                        cookingAnimation.style.display = 'none';
                         document.getElementById('movieTitle').textContent = movie.title;
                         document.getElementById('movieYear').textContent = `Release Year: ${movie.releaseDate.split('-')[0]}`;
                         document.getElementById('movieRating').textContent = `Rating: ${movie.rating}`;
@@ -522,44 +633,100 @@
                         // Update where to watch section
                         updateWhereToWatch(movie.watchProviders);
 
-                        // Set backdrop image if available
-                        if (movie.backdropPath) {
-                            document.body.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.backdropPath})`;
-                            document.body.classList.add('backdrop');
-                        } else {
-                            document.body.style.backgroundImage = 'none';
-                            document.body.classList.remove('backdrop');
-                        }
-
                         contentSection.style.display = 'flex';
                         navigationButtons.style.display = 'flex';
                         generateRandomSnacks(); // Generate random snacks (1 eatable, 1 drink)
-                        updateNavigationButtons(); // Update button states
+                        updateNavigationButtons(hasPrev, hasNext); // Update button states based on pagination
                     } else {
                         // Show error if no movie details are fetched
+                        cookingAnimation.style.display = 'none';
                         const errorMessage = document.createElement('div');
                         errorMessage.className = 'error-message';
                         errorMessage.textContent = 'Failed to load movie details. Please try again!';
                         document.querySelector('.container').appendChild(errorMessage);
                         setTimeout(() => errorMessage.remove(), 3000); // Remove error after 3 seconds
                         initialMessage.style.display = 'block'; // Show initial message again
-                        // Reset backdrop if error occurs
-                        document.body.style.backgroundImage = 'none';
-                        document.body.classList.remove('backdrop');
                     }
                 } else {
                     // Show error if no movies are found
+                    cookingAnimation.style.display = 'none';
                     const errorMessage = document.createElement('div');
                     errorMessage.className = 'error-message';
                     errorMessage.textContent = 'Failed to cook a movie. Please try again!';
                     document.querySelector('.container').appendChild(errorMessage);
                     setTimeout(() => errorMessage.remove(), 3000); // Remove error after 3 seconds
                     initialMessage.style.display = 'block'; // Show initial message again
-                    // Reset backdrop if no movies are found
-                    document.body.style.backgroundImage = 'none';
-                    document.body.classList.remove('backdrop');
                 }
             }, 2000); // 2 seconds for the animation
+        }
+
+        // Function to navigate to the previous page or movie
+        async function previousMovie() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                const movie = await fetchMovieDetails(movieList[currentIndex].id, document.querySelector('select[name="language"]').value || 'en');
+                if (movie) {
+                    updateMovieDisplay(movie);
+                }
+                updateNavigationButtons(true, true); // Assume prev/next availability until checked
+            } else if (currentPage > 1) {
+                currentPage--;
+                const { movies, hasNext, hasPrev } = await fetchMovieList(
+                    document.querySelector('select[name="language"]').value || 'en',
+                    selectedGenres.join('%2C') || '',
+                    selectedRating || '',
+                    currentPage
+                );
+                movieList = movies;
+                currentIndex = movieList.length - 1; // Move to the last movie of the previous page
+                const movie = await fetchMovieDetails(movieList[currentIndex].id, document.querySelector('select[name="language"]').value || 'en');
+                if (movie) {
+                    updateMovieDisplay(movie);
+                }
+                updateNavigationButtons(hasPrev, hasNext);
+            }
+        }
+
+        // Function to navigate to the next page or movie
+        async function nextMovie() {
+            if (currentIndex < movieList.length - 1) {
+                currentIndex++;
+                const movie = await fetchMovieDetails(movieList[currentIndex].id, document.querySelector('select[name="language"]').value || 'en');
+                if (movie) {
+                    updateMovieDisplay(movie);
+                }
+                updateNavigationButtons(true, true); // Assume prev/next availability until checked
+            } else if (currentPage < totalPages) {
+                currentPage++;
+                const { movies, hasNext, hasPrev } = await fetchMovieList(
+                    document.querySelector('select[name="language"]').value || 'en',
+                    selectedGenres.join('%2C') || '',
+                    selectedRating || '',
+                    currentPage
+                );
+                movieList = movies;
+                currentIndex = 0; // Move to the first movie of the next page
+                const movie = await fetchMovieDetails(movieList[currentIndex].id, document.querySelector('select[name="language"]').value || 'en');
+                if (movie) {
+                    updateMovieDisplay(movie);
+                }
+                updateNavigationButtons(hasPrev, hasNext);
+            }
+        }
+
+        // Function to update movie display with a specific movie object
+        function updateMovieDisplay(movie) {
+            document.getElementById('movieTitle').textContent = movie.title;
+            document.getElementById('movieYear').textContent = `Release Year: ${movie.releaseDate.split('-')[0]}`;
+            document.getElementById('movieRating').textContent = `Rating: ${movie.rating}`;
+            document.getElementById('movieRuntime').textContent = `Runtime: ${movie.runtime.hours}h ${movie.runtime.minutes}m`;
+            document.getElementById('movieDescription').textContent = movie.overview || 'No description available.';
+            document.getElementById('moviePoster').src = movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : PLACEHOLDER_POSTER;
+            document.getElementById('moviePoster').alt = movie.title || 'Movie Poster';
+            document.getElementById('movieCast').textContent = `Cast: ${movie.cast || 'No cast information available'}`;
+            document.getElementById('movieDirector').textContent = `Director: ${movie.director}`;
+            updateWhereToWatch(movie.watchProviders);
+            generateRandomSnacks(); // Generate new random snacks for each movie
         }
 
         // Function to update where to watch section
@@ -604,71 +771,25 @@
             }
         }
 
-        // Function to navigate to the previous movie
-        function previousMovie() {
-            if (currentIndex > 0) {
-                currentIndex--;
-                updateMovieDisplay();
-                updateNavigationButtons();
-            }
-        }
-
-        // Function to navigate to the next movie
-        function nextMovie() {
-            if (currentIndex < movieList.length - 1) {
-                currentIndex++;
-                updateMovieDisplay();
-                updateNavigationButtons();
-            }
-        }
-
-        // Function to update movie display based on current index
-        async function updateMovieDisplay() {
-            const language = document.querySelector('select[name="language"]').value || 'en';
-            const movie = await fetchMovieDetails(movieList[currentIndex].id, language);
-            if (movie) {
-                document.getElementById('movieTitle').textContent = movie.title;
-                document.getElementById('movieYear').textContent = `Release Year: ${movie.releaseDate.split('-')[0]}`;
-                document.getElementById('movieRating').textContent = `Rating: ${movie.rating}`;
-                document.getElementById('movieRuntime').textContent = `Runtime: ${movie.runtime.hours}h ${movie.runtime.minutes}m`;
-                document.getElementById('movieDescription').textContent = movie.overview || 'No description available.';
-                document.getElementById('moviePoster').src = movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : PLACEHOLDER_POSTER;
-                document.getElementById('moviePoster').alt = movie.title || 'Movie Poster';
-                document.getElementById('movieCast').textContent = `Cast: ${movie.cast || 'No cast information available'}`;
-                document.getElementById('movieDirector').textContent = `Director: ${movie.director}`;
-                updateWhereToWatch(movie.watchProviders); // Update where to watch for each movie
-
-                // Set backdrop image if available
-                if (movie.backdropPath) {
-                    document.body.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.backdropPath})`;
-                    document.body.classList.add('backdrop');
-                } else {
-                    document.body.style.backgroundImage = 'none';
-                    document.body.classList.remove('backdrop');
-                }
-
-                generateRandomSnacks(); // Generate new random snacks for each movie
-            }
-        }
-
-        // Function to update navigation button states
-        function updateNavigationButtons() {
+        // Function to update navigation button states based on pagination
+        function updateNavigationButtons(hasPrev, hasNext) {
             const prevButton = document.getElementById('prevButton');
             const nextButton = document.getElementById('nextButton');
 
-            // Disable PREV button if at the first movie
-            prevButton.disabled = currentIndex <= 0;
-            prevButton.classList.toggle('disabled', currentIndex <= 0);
+            // Disable PREV button if no previous page or movie
+            prevButton.disabled = !hasPrev || currentIndex <= 0;
+            prevButton.classList.toggle('disabled', !hasPrev || currentIndex <= 0);
 
-            // Disable NEXT button if at the last movie
-            nextButton.disabled = currentIndex >= movieList.length - 1;
-            nextButton.classList.toggle('disabled', currentIndex >= movieList.length - 1);
+            // Disable NEXT button if no next page or movie
+            nextButton.disabled = !hasNext || (currentIndex >= movieList.length - 1 && currentPage >= totalPages);
+            nextButton.classList.toggle('disabled', !hasNext || (currentIndex >= movieList.length - 1 && currentPage >= totalPages));
         }
 
-        // Fetch genres and languages when the page loads
+        // Fetch genres and languages when the page loads, after hiding the welcome screen
         window.onload = async () => {
             await fetchGenres();
             await fetchLanguages();
-       ...
-
-Something went wrong, please try again.
+        };
+    </script>
+</body>
+</html>
