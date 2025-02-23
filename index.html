@@ -504,7 +504,7 @@
             const certification = rating ? certificationMap[rating] : '';
 
             // Build the API query with multiple genres (URL-encoded with %2C)
-            let url = `${TMDB_BASE_URL}/discover/movie?include_adult=true&include_video=false&language=en-IN&page=${page}&sort_by=popularity.desc&with_genres=${encodeURIComponent(genres)}&with_origin_country=IN&with_original_language=${language}`;
+            let url = `${TMDB_BASE_URL}/discover/movie?include_adult=true&include_video=false&language=en-IN&page=${page}&sort_by=popularity.desc&with_genres=${(genres)}&with_origin_country=IN&with_original_language=${language}`;
             // if (certification) {
             //     url += `&certification_country=US&certification=${certification}`;
             // }
