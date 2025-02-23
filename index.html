@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Film Cooker</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sigmar&display=swap" rel="stylesheet">
+    <style>
+        /* Popup styling (existing, unchanged for brevity) */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1E1B1B;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 80%;
+            max-width: 500px;
+        }
+
+        .popup-content {
+            color: white;
+            font-family: 'Sigmar', cursive;
+        }
+
+        .checkboxes {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .checkbox {
+            margin: 5px 0;
+        }
+
+        .popup-buttons {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .popup-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            font-family: 'Sigmar', cursive;
+        }
+
+        .popup-btn.green {
+            background-color: #6EB423;
+            color: black;
+        }
+
+        /* Overlay for the popup (existing, unchanged) */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 900;
+        }
+
+        /* Genre button styling (existing, unchanged) */
+        .genre-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 180px;
+            font-family: 'Sigmar', cursive;
+            box-sizing: border-box; /* Ensure padding doesn’t affect width */
+        }
+
+        /* Rating popup specific styling (existing, unchanged) */
+        #ratingPopup .checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Where to Watch section styling */
+        .where-to-watch {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(51, 51, 51, 0.8);
+            border-radius: 10px;
+            color: white;
+            font-family: 'Sigmar', cursive;
+            font-size: 16px;
+        }
+
+        .watch-providers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .provider {
+            background-color: #333;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        /* Responsive adjustments for mobile (existing + where to watch) */
+        @media (max-width: 600px) {
+            .popup {
+                width: 90%;
+                padding: 15px;
+            }
+
+            .popup-btn, .genre-btn {
+                padding: 8px 15px;
+                font-size: 14px;
+                width: 100%;
+            }
+
+            .checkboxes {
+                gap: 8px;
+            }
+
+            .where-to-watch {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .provider {
+                font-size: 12px;
+                padding: 3px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Film Cooker</h1>
+        <div class="options">
+            <select class="option-select" name="language" id="languageSelect">
+                <option value="">LANGUAGE</option>
+            </select>
+            <button class="genre-btn" onclick="showGenrePopup()">Genre</button>
+            <select class="option-select" name="rating" id="ratingSelect" style="display: none;">
+                <option value="">RATING</option>
+                <option value="G">G</option>
+                <option value="PG">PG</option>
+                <option value="PG-13">PG-13</option>
+                <option value="R">R</option>
+            </select>
+            <button type="submit" class="cook-btn" onclick="startCooking()">COOK</button>
+        </div>
+        <div class="initial-message" id="initialMessage">Select ingredients to cook the movie</div>
+        <div class="cooking-animation" id="cookingAnimation" style="display: none;">
+            <img src="https://media1.giphy.com/media/dxa8gv3pmkh79B6SxJ/giphy.gif?cid=6c09b952itq2t32icut3hctyp9arvsqkk5yvuduzx7j8mt9k&ep=v1_internal_gif_by_id&rid=giphy.gif&ct=s" alt="Cooking Animation" class="cooking-gif">
+            <p class="cooking-text">Cooking your recipe</p>
+        </div>
+        <div class="content-section" id="contentSection" style="display: none;">
+            <div class="poster-space">
+                <img src="" alt="Movie Poster" class="poster" id="moviePoster">
+            </div>
+            <div class="movie-details">
+                <h2 class="movie-title" id="movieTitle"></h2>
+                <p class="movie-year" id="movieYear"></p>
+                <p class="movie-rating" id="movieRating"></p>
+                <p class="movie-runtime" id="movieRuntime"></p>
+                <p class="movie-description" id="movieDescription"></p>
+                <p class="movie-director" id="movieDirector"></p>
+                <p class="movie-cast" id="movieCast"></p>
+                <div class="where-to-watch" id="whereToWatch"></div>
+                <div class="snack-section" id="snackSection"></div>
+            </div>
+        </div>
+        <div class="navigation-buttons" id="navigationButtons" style="display: none;">
+            <button class="nav-btn" onclick="previousMovie()" id="prevButton">PREV</button>
+            <button class="nav-btn green" onclick="nextMovie()" id="nextButton">NEXT</button>
+        </div>
+    </div>
+
+    <!-- Genre Popup -->
+    <div class="overlay" id="overlay"></div>
+    <div class="popup" id="genrePopup">
+        <div class="popup-content">
+            <h2>Select Genres</h2>
+            <div class="checkboxes" id="genreCheckboxes"></div>
+            <div class="popup-buttons">
+                <button class="popup-btn" onclick="closePopup()">Cancel</button>
+                <button class="popup-btn green" onclick="saveGenreSelection()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Popup -->
+    <div class="popup" id="ratingPopup" style="display: none;">
+        <div class="popup-content">
+            <h2>Select Rating</h2>
+            <div class="checkboxes" id="ratingCheckboxes"></div>
+            <div class="popup-buttons">
+                <button class="popup-btn" onclick="closePopup()">Cancel</button>
+                <button class="popup-btn green" onclick="saveRatingSelection()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // List of snacks categorized into drinks and eatables with image paths
+        const snacks = {
+            eatables: [
+                { name: "Popcorn", image: "./images/popcorn.png" },
+                { name: "Nachos with Cheese Dip", image: "./images/nachos-with-cheese.png" },
+                { name: "French Fries", image: "./images/fries.png" },
+                { name: "Mozzarella Sticks", image: "./images/sticks.png" },
+                { name: "Samosa", image: "./images/samosa.png" },
+                { name: "Ice Cream", image: "./images/ice-cream.png" },
+                { name: "Chips", image: "./images/chips.png" }
+            ],
+            drinks: [
+                { name: "Coke", image: "./images/coke.png" },
+                { name: "Pepsi", image: "./images/pepsi.png" },
+                { name: "Sprite", image: "./images/sprite.png" },
+                { name: "Fanta", image: "./images/fanta.png" },
+                { name: "Milkshake", image: "./images/milkshake.png" }
+            ]
+        };
+
+        // Placeholder image for when no poster is available
+        const PLACEHOLDER_POSTER = './images/placeholder-poster.jpg'; // Ensure this image exists in your images folder
+
+        // TMDb API configuration
+        const TMDB_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmOWVmNDdkMjU0ZTFmNzg4YzgyY2QzY2Y5NDc5NzNhNCIsIm5iZiI6MTczNjE2MzI1MS4xMiwic3ViIjoiNjc3YmJmYjNkOWIwZTcwZDVkNzI0OGVmIiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.yHGQcDFXiaghtuwLizkHL9YlqS6k0p7aapzgnrSFWxI'; // Replace with your TMDb API key
+        const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+        // Global variable to store movie list, current index, selected genres, and selected rating
+        let movieList = [];
+        let currentIndex = -1;
+        let selectedGenres = [];
+        let selectedRating = '';
+
+        // Function to fetch and populate genres
+        async function fetchGenres() {
+            try {
+                const response = await fetch(`${TMDB_BASE_URL}/genre/movie/list?language=en-US`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch genres');
+                const data = await response.json();
+                const genreCheckboxes = document.getElementById('genreCheckboxes');
+                data.genres.forEach(genre => {
+                    const checkboxDiv = document.createElement('div');
+                    checkboxDiv.className = 'checkbox';
+                    checkboxDiv.innerHTML = `
+                        <input type="checkbox" name="genre" value="${genre.id}" id="genre_${genre.id}">
+                        <label for="genre_${genre.id}">${genre.name}</label>
+                    `;
+                    genreCheckboxes.appendChild(checkboxDiv);
+                });
+            } catch (error) {
+                console.error('Error fetching genres:', error);
+            }
+        }
+
+        // Function to fetch and populate languages
+        async function fetchLanguages() {
+            try {
+                const response = await fetch(`${TMDB_BASE_URL}/configuration/languages`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch languages');
+                const data = await response.json();
+                const languageSelect = document.getElementById('languageSelect');
+                data.forEach(lang => {
+                    const option = document.createElement('option');
+                    option.value = lang.iso_639_1;
+                    option.textContent = lang.english_name;
+                    languageSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error fetching languages:', error);
+            }
+        }
+
+        // Function to show genre popup
+        function showGenrePopup() {
+            const popup = document.getElementById('genrePopup');
+            const overlay = document.getElementById('overlay');
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+            
+            // Check existing selected genres and mark checkboxes
+            const checkboxes = document.querySelectorAll('#genreCheckboxes input');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectedGenres.includes(checkbox.value);
+            });
+        }
+
+        // Function to show rating popup (after genres are selected)
+        function showRatingPopup() {
+            const popup = document.getElementById('ratingPopup');
+            const overlay = document.getElementById('overlay');
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+
+            // Clear and populate rating checkboxes
+            const ratingCheckboxes = document.getElementById('ratingCheckboxes');
+            ratingCheckboxes.innerHTML = '';
+            const ratings = ['G', 'PG', 'PG-13', 'R'];
+            ratings.forEach(r => {
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'checkbox';
+                checkboxDiv.innerHTML = `
+                    <input type="radio" name="rating" value="${r}" id="rating_${r}">
+                    <label for="rating_${r}">${r}</label>
+                `;
+                ratingCheckboxes.appendChild(checkboxDiv);
+            });
+
+            // Check existing selected rating if any
+            if (selectedRating) {
+                document.querySelector(`#rating_${selectedRating}`).checked = true;
+            }
+        }
+
+        // Function to close popup without saving
+        function closePopup() {
+            const popup = document.querySelector('.popup[style*="display: block"]');
+            const overlay = document.getElementById('overlay');
+            if (popup) popup.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        // Function to save genre selection and show rating popup
+        function saveGenreSelection() {
+            const checkboxes = document.querySelectorAll('#genreCheckboxes input:checked');
+            selectedGenres = Array.from(checkboxes).map(checkbox => checkbox.value);
+            closePopup();
+            showRatingPopup();
+        }
+
+        // Function to save rating selection and trigger cooking
+        function saveRatingSelection() {
+            const radio = document.querySelector('#ratingCheckboxes input:checked');
+            selectedRating = radio ? radio.value : '';
+            closePopup();
+            startCooking(); // Trigger the cooking process with selected genres and rating
+        }
+
+        // Function to generate 1 random eatable and 1 random drink
+        function generateRandomSnacks() {
+            const snackSection = document.getElementById('snackSection');
+            snackSection.innerHTML = ''; // Clear existing snacks
+
+            // Randomly select 1 eatable
+            const randomEatable = snacks.eatables[Math.floor(Math.random() * snacks.eatables.length)];
+            // Randomly select 1 drink
+            const randomDrink = snacks.drinks[Math.floor(Math.random() * snacks.drinks.length)];
+
+            // Create snack elements for eatable
+            const eatableDiv = document.createElement('div');
+            eatableDiv.className = 'snack-item';
+            eatableDiv.innerHTML = `
+                <img class="snack-image" src="${randomEatable.image}" alt="${randomEatable.name}">
+                <p class="snack-name">${randomEatable.name}</p>
+            `;
+            snackSection.appendChild(eatableDiv);
+
+            // Create snack elements for drink
+            const drinkDiv = document.createElement('div');
+            drinkDiv.className = 'snack-item';
+            drinkDiv.innerHTML = `
+                <img class="snack-image" src="${randomDrink.image}" alt="${randomDrink.name}">
+                <p class="snack-name">${randomDrink.name}</p>
+            `;
+            snackSection.appendChild(drinkDiv);
+        }
+
+        // Function to fetch movie list from TMDb
+        async function fetchMovieList(language, genres, rating) {
+            try {
+                // Map rating to TMDb certification (simplified mapping)
+                const certificationMap = {
+                    'G': 'G',
+                    'PG': 'PG',
+                    'PG-13': 'PG-13',
+                    'R': 'R'
+                };
+                const certification = rating ? certificationMap[rating] : '';
+
+                // Build the API query with multiple genres (comma-separated)
+                let url = `${TMDB_BASE_URL}/discover/movie?include_adult=true&include_video=false&language=en-IN&page=1&sort_by=popularity.desc&with_genres=${genres}&with_origin_country=IN&with_original_language=${language}`;
+                // Fetch movies
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch movie data');
+                
+                const data = await response.json();
+                if (!data.results || data.results.length === 0) throw new Error('No movies found');
+
+                return data.results; // Return the full list of movies
+            } catch (error) {
+                console.error('Error fetching movie list:', error);
+                return []; // Return empty list on error
+            }
+        }
+
+        // Function to fetch detailed movie data for a specific movie, including watch providers
+        async function fetchMovieDetails(movieId, language) {
+            try {
+                // Fetch movie details
+                const detailsResponse = await fetch(`${TMDB_BASE_URL}/movie/${movieId}?language=en&append_to_response=credits`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
+                    }
+                });
+                if (!detailsResponse.ok) throw new Error('Failed to fetch movie details');
+                
+                const movieDetails = await detailsResponse.json();
+
+                // Fetch watch providers for the movie in India (region=IN)
+                const providersResponse = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/watch/providers?api_key=${TMDB_API_KEY}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
+                    }
+                });
+                if (!providersResponse.ok) throw new Error('Failed to fetch watch providers');
+                
+                const providersData = await providersResponse.json();
+                const watchProviders = providersData.results.IN || providersData.results.US || {}; // Default to US if IN not available
+
+                // Get runtime in minutes (from movieDetails.runtime)
+                const runtimeMinutes = movieDetails.runtime || 0;
+                const hours = Math.floor(runtimeMinutes / 60);
+                const minutes = runtimeMinutes % 60;
+
+                // Get director (first crew member with job 'Director')
+                const director = movieDetails.credits.crew.find(member => member.job === 'Director')?.name || 'No director information available';
+
+                return {
+                    title: movieDetails.title,
+                    posterPath: movieDetails.poster_path,
+                    releaseDate: movieDetails.release_date,
+                    rating: movieDetails.adult ? 'R' : (movieDetails.certification || 'PG-13'), // Simplified
+                    overview: movieDetails.overview,
+                    cast: movieDetails.credits.cast.slice(0, 3).map(actor => actor.name).join(', '), // Top 3 cast members
+                    runtime: { hours, minutes },
+                    director: director,
+                    watchProviders: {
+                        flatrate: watchProviders.flatrate || [], // Streaming (e.g., Netflix, Disney+)
+                        rent: watchProviders.rent || [], // Rental options
+                        buy: watchProviders.buy || [] // Purchase options
+                    }
+                };
+            } catch (error) {
+                console.error('Error fetching movie details:', error);
+                return null; // Handle error gracefully
+            }
+        }
+
+        // Function to start cooking animation and fetch movie list
+        async function startCooking() {
+            const initialMessage = document.getElementById('initialMessage');
+            const cookingAnimation = document.getElementById('cookingAnimation');
+            const contentSection = document.getElementById('contentSection');
+            const navigationButtons = document.getElementById('navigationButtons');
+
+            // Hide initial message, content section, navigation buttons, and show cooking animation
+            initialMessage.style.display = 'none';
+            contentSection.style.display = 'none';
+            navigationButtons.style.display = 'none';
+            cookingAnimation.style.display = 'flex';
+
+            // Clear previous movie details
+            document.getElementById('movieTitle').textContent = '';
+            document.getElementById('movieYear').textContent = '';
+            document.getElementById('movieRating').textContent = '';
+            document.getElementById('movieRuntime').textContent = '';
+            document.getElementById('movieDescription').textContent = '';
+            document.getElementById('moviePoster').src = '';
+            document.getElementById('moviePoster').alt = '';
+            document.getElementById('movieCast').textContent = '';
+            document.getElementById('movieDirector').textContent = '';
+            document.getElementById('whereToWatch').innerHTML = '';
+            document.getElementById('snackSection').innerHTML = '';
+
+            // Fetch movie list based on selections
+            const language = document.querySelector('select[name="language"]').value || 'en';
+            const genres = selectedGenres.join('%2C') || ''; // URL-encoded genre IDs
+            const rating = selectedRating || '';
+
+            movieList = await fetchMovieList(language, genres, rating);
+            currentIndex = 0; // Start with the first movie in the list
+
+            // Simulate cooking (2-second delay for animation)
+            setTimeout(async () => {
+                cookingAnimation.style.display = 'none';
+                if (movieList.length > 0) {
+                    const movie = await fetchMovieDetails(movieList[currentIndex].id, language);
+                    if (movie) {
+                        // Update movie details
+                        document.getElementById('movieTitle').textContent = movie.title;
+                        document.getElementById('movieYear').textContent = `Release Year: ${movie.releaseDate.split('-')[0]}`;
+                        document.getElementById('movieRating').textContent = `Rating: ${movie.rating}`;
+                        document.getElementById('movieRuntime').textContent = `Runtime: ${movie.runtime.hours}h ${movie.runtime.minutes}m`;
+                        document.getElementById('movieDescription').textContent = movie.overview || 'No description available.';
+                        document.getElementById('moviePoster').src = movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : PLACEHOLDER_POSTER;
+                        document.getElementById('moviePoster').alt = movie.title || 'Movie Poster';
+                        document.getElementById('movieCast').textContent = `Cast: ${movie.cast || 'No cast information available'}`;
+                        document.getElementById('movieDirector').textContent = `Director: ${movie.director}`;
+
+                        // Update where to watch section
+                        updateWhereToWatch(movie.watchProviders);
+
+                        contentSection.style.display = 'flex';
+                        navigationButtons.style.display = 'flex';
+                        generateRandomSnacks(); // Generate random snacks (1 eatable, 1 drink)
+                        updateNavigationButtons(); // Update button states
+                    } else {
+                        // Show error if no movie details are fetched
+                        const errorMessage = document.createElement('div');
+                        errorMessage.className = 'error-message';
+                        errorMessage.textContent = 'Failed to load movie details. Please try again!';
+                        document.querySelector('.container').appendChild(errorMessage);
+                        setTimeout(() => errorMessage.remove(), 3000); // Remove error after 3 seconds
+                        initialMessage.style.display = 'block'; // Show initial message again
+                    }
+                } else {
+                    // Show error if no movies are found
+                    const errorMessage = document.createElement('div');
+                    errorMessage.className = 'error-message';
+                    errorMessage.textContent = 'Failed to cook a movie. Please try again!';
+                    document.querySelector('.container').appendChild(errorMessage);
+                    setTimeout(() => errorMessage.remove(), 3000); // Remove error after 3 seconds
+                    initialMessage.style.display = 'block'; // Show initial message again
+                }
+            }, 2000); // 2 seconds for the animation
+        }
+
+        // Function to update where to watch section
+        function updateWhereToWatch(providers) {
+            const whereToWatch = document.getElementById('whereToWatch');
+            whereToWatch.innerHTML = '<h3>Where to Watch</h3>';
+
+            const providersDiv = document.createElement('div');
+            providersDiv.className = 'watch-providers';
+
+            if (providers.flatrate.length > 0) {
+                providers.flatrate.forEach(provider => {
+                    const providerDiv = document.createElement('div');
+                    providerDiv.className = 'provider';
+                    providerDiv.textContent = provider.provider_name + ' (Stream)';
+                    providersDiv.appendChild(providerDiv);
+                });
+            }
+
+            if (providers.rent.length > 0) {
+                providers.rent.forEach(provider => {
+                    const providerDiv = document.createElement('div');
+                    providerDiv.className = 'provider';
+                    providerDiv.textContent = provider.provider_name + ' (Rent)';
+                    providersDiv.appendChild(providerDiv);
+                });
+            }
+
+            if (providers.buy.length > 0) {
+                providers.buy.forEach(provider => {
+                    const providerDiv = document.createElement('div');
+                    providerDiv.className = 'provider';
+                    providerDiv.textContent = provider.provider_name + ' (Buy)';
+                    providersDiv.appendChild(providerDiv);
+                });
+            }
+
+            if (providersDiv.children.length === 0) {
+                whereToWatch.innerHTML += '<p>No streaming, rental, or purchase options available in your region.</p>';
+            } else {
+                whereToWatch.appendChild(providersDiv);
+            }
+        }
+
+        // Function to navigate to the previous movie
+        function previousMovie() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateMovieDisplay();
+                updateNavigationButtons();
+            }
+        }
+
+        // Function to navigate to the next movie
+        function nextMovie() {
+            if (currentIndex < movieList.length - 1) {
+                currentIndex++;
+                updateMovieDisplay();
+                updateNavigationButtons();
+            }
+        }
+
+        // Function to update movie display based on current index
+        async function updateMovieDisplay() {
+            const language = document.querySelector('select[name="language"]').value || 'en';
+            const movie = await fetchMovieDetails(movieList[currentIndex].id, language);
+            if (movie) {
+                document.getElementById('movieTitle').textContent = movie.title;
+                document.getElementById('movieYear').textContent = `Release Year: ${movie.releaseDate.split('-')[0]}`;
+                document.getElementById('movieRating').textContent = `Rating: ${movie.rating}`;
+                document.getElementById('movieRuntime').textContent = `Runtime: ${movie.runtime.hours}h ${movie.runtime.minutes}m`;
+                document.getElementById('movieDescription').textContent = movie.overview || 'No description available.';
+                document.getElementById('moviePoster').src = movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : PLACEHOLDER_POSTER;
+                document.getElementById('moviePoster').alt = movie.title || 'Movie Poster';
+                document.getElementById('movieCast').textContent = `Cast: ${movie.cast || 'No cast information available'}`;
+                document.getElementById('movieDirector').textContent = `Director: ${movie.director}`;
+                updateWhereToWatch(movie.watchProviders); // Update where to watch for each movie
+                generateRandomSnacks(); // Generate new random snacks for each movie
+            }
+        }
+
+        // Function to update navigation button states
+        function updateNavigationButtons() {
+            const prevButton = document.getElementById('prevButton');
+            const nextButton = document.getElementById('nextButton');
+
+            // Disable PREV button if at the first movie
+            prevButton.disabled = currentIndex <= 0;
+            prevButton.classList.toggle('disabled', currentIndex <= 0);
+
+            // Disable NEXT button if at the last movie
+            nextButton.disabled = currentIndex >= movieList.length - 1;
+            nextButton.classList.toggle('disabled', currentIndex >= movieList.length - 1);
+        }
+
+        // Fetch genres and languages when the page loads
+        window.onload = async () => {
+            await fetchGenres();
+            await fetchLanguages();
+        };
+    </script>
+</body>
+</html>
