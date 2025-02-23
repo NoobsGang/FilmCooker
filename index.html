@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Film Cooker</title>
+    <title>Film Kitchen</title>
     <link rel="stylesheet" href="css/main.css">
     <link href="https://fonts.googleapis.com/css2?family=Sigmar&display=swap" rel="stylesheet">
     <style>
@@ -96,7 +96,7 @@
             gap: 10px;
         }
 
-        /* Where to Watch section styling */
+        /* Where to Watch section styling (existing, unchanged) */
         .where-to-watch {
             margin-top: 20px;
             padding: 15px;
@@ -121,7 +121,28 @@
             font-size: 14px;
         }
 
-        /* Responsive adjustments for mobile (existing + where to watch) */
+        /* Body background with backdrop image (existing, unchanged for brevity) */
+        body {
+            background-color: #1E1B1B; /* Default background if no backdrop */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 0.5s ease; /* Smooth transition for backdrop changes */
+        }
+
+        body.backdrop {
+            background-color: rgba(30, 27, 27, 0.8); /* Dark overlay for readability */
+            background-blend-mode: overlay; /* Blend backdrop with dark overlay */
+        }
+
+        /* Ensure container and content remain readable over backdrop (existing, unchanged) */
+        .container {
+            background-color: rgba(30, 27, 27, 0.9); /* Slightly opaque container to ensure readability */
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        /* Responsive adjustments for mobile (existing + backdrop, unchanged) */
         @media (max-width: 600px) {
             .popup {
                 width: 90%;
@@ -146,6 +167,10 @@
             .provider {
                 font-size: 12px;
                 padding: 3px 8px;
+            }
+
+            .container {
+                padding: 10px;
             }
         }
     </style>
@@ -243,9 +268,8 @@
         // Placeholder image for when no poster is available
         const PLACEHOLDER_POSTER = './images/placeholder-poster.jpg'; // Ensure this image exists in your images folder
 
-        // TMDb API configuration
-        const TMDB_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmOWVmNDdkMjU0ZTFmNzg4YzgyY2QzY2Y5NDc5NzNhNCIsIm5iZiI6MTczNjE2MzI1MS4xMiwic3ViIjoiNjc3YmJmYjNkOWIwZTcwZDVkNzI0OGVmIiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.yHGQcDFXiaghtuwLizkHL9YlqS6k0p7aapzgnrSFWxI'; // Replace with your TMDb API key
-        const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+        // PHP endpoint URL (update this to match your server setup, e.g., http://localhost/php/tmdb_api.php)
+        const PHP_ENDPOINT = './api/index.php'; // Adjust this to your PHP server URL
 
         // Global variable to store movie list, current index, selected genres, and selected rating
         let movieList = [];
@@ -253,18 +277,26 @@
         let selectedGenres = [];
         let selectedRating = '';
 
+        // Function to fetch data from PHP endpoint
+        async function fetchFromPHP(url, params = {}) {
+            const queryString = new URLSearchParams(params).toString();
+            const fullUrl = queryString ? `${url}?${queryString}` : url;
+            try {
+                const response = await fetch(fullUrl);
+                if (!response.ok) throw new Error('Failed to fetch data from PHP endpoint');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                return data;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return null;
+            }
+        }
+
         // Function to fetch and populate genres
         async function fetchGenres() {
-            try {
-                const response = await fetch(`${TMDB_BASE_URL}/genre/movie/list?language=en-US`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
-                    }
-                });
-                if (!response.ok) throw new Error('Failed to fetch genres');
-                const data = await response.json();
+            const data = await fetchFromPHP(PHP_ENDPOINT, { action: 'genres' });
+            if (data && data.genres) {
                 const genreCheckboxes = document.getElementById('genreCheckboxes');
                 data.genres.forEach(genre => {
                     const checkboxDiv = document.createElement('div');
@@ -275,23 +307,13 @@
                     `;
                     genreCheckboxes.appendChild(checkboxDiv);
                 });
-            } catch (error) {
-                console.error('Error fetching genres:', error);
             }
         }
 
         // Function to fetch and populate languages
         async function fetchLanguages() {
-            try {
-                const response = await fetch(`${TMDB_BASE_URL}/configuration/languages`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
-                    }
-                });
-                if (!response.ok) throw new Error('Failed to fetch languages');
-                const data = await response.json();
+            const data = await fetchFromPHP(PHP_ENDPOINT, { action: 'languages' });
+            if (data) {
                 const languageSelect = document.getElementById('languageSelect');
                 data.forEach(lang => {
                     const option = document.createElement('option');
@@ -299,8 +321,6 @@
                     option.textContent = lang.english_name;
                     languageSelect.appendChild(option);
                 });
-            } catch (error) {
-                console.error('Error fetching languages:', error);
             }
         }
 
@@ -398,95 +418,54 @@
             snackSection.appendChild(drinkDiv);
         }
 
-        // Function to fetch movie list from TMDb
+        // Function to fetch movie list from PHP endpoint
         async function fetchMovieList(language, genres, rating) {
-            try {
-                // Map rating to TMDb certification (simplified mapping)
-                const certificationMap = {
-                    'G': 'G',
-                    'PG': 'PG',
-                    'PG-13': 'PG-13',
-                    'R': 'R'
-                };
-                const certification = rating ? certificationMap[rating] : '';
-
-                // Build the API query with multiple genres (comma-separated)
-                let url = `${TMDB_BASE_URL}/discover/movie?include_adult=true&include_video=false&language=en-IN&page=1&sort_by=popularity.desc&with_genres=${genres}&with_origin_country=IN&with_original_language=${language}`;
-                // Fetch movies
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
-                    }
-                });
-                if (!response.ok) throw new Error('Failed to fetch movie data');
-                
-                const data = await response.json();
-                if (!data.results || data.results.length === 0) throw new Error('No movies found');
-
-                return data.results; // Return the full list of movies
-            } catch (error) {
-                console.error('Error fetching movie list:', error);
-                return []; // Return empty list on error
-            }
+            const params = {
+                action: 'discover',
+                language: language,
+                genres: genres,
+                rating: rating
+            };
+            const data = await fetchFromPHP(PHP_ENDPOINT, params);
+            return data.results || [];
         }
 
-        // Function to fetch detailed movie data for a specific movie, including watch providers
+        // Function to fetch detailed movie data from PHP endpoint, including watch providers and backdrop
         async function fetchMovieDetails(movieId, language) {
-            try {
-                // Fetch movie details
-                const detailsResponse = await fetch(`${TMDB_BASE_URL}/movie/${movieId}?language=en&append_to_response=credits`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
-                    }
-                });
-                if (!detailsResponse.ok) throw new Error('Failed to fetch movie details');
-                
-                const movieDetails = await detailsResponse.json();
+            const details = await fetchFromPHP(PHP_ENDPOINT, { action: 'movie_details', movie_id: movieId, language: language });
+            const providers = await fetchFromPHP(PHP_ENDPOINT, { action: 'watch_providers', movie_id: movieId });
 
-                // Fetch watch providers for the movie in India (region=IN)
-                const providersResponse = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/watch/providers?api_key=${TMDB_API_KEY}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${TMDB_API_KEY}` // If required
-                    }
-                });
-                if (!providersResponse.ok) throw new Error('Failed to fetch watch providers');
-                
-                const providersData = await providersResponse.json();
-                const watchProviders = providersData.results.IN || providersData.results.US || {}; // Default to US if IN not available
-
-                // Get runtime in minutes (from movieDetails.runtime)
-                const runtimeMinutes = movieDetails.runtime || 0;
-                const hours = Math.floor(runtimeMinutes / 60);
-                const minutes = runtimeMinutes % 60;
-
-                // Get director (first crew member with job 'Director')
-                const director = movieDetails.credits.crew.find(member => member.job === 'Director')?.name || 'No director information available';
-
-                return {
-                    title: movieDetails.title,
-                    posterPath: movieDetails.poster_path,
-                    releaseDate: movieDetails.release_date,
-                    rating: movieDetails.adult ? 'R' : (movieDetails.certification || 'PG-13'), // Simplified
-                    overview: movieDetails.overview,
-                    cast: movieDetails.credits.cast.slice(0, 3).map(actor => actor.name).join(', '), // Top 3 cast members
-                    runtime: { hours, minutes },
-                    director: director,
-                    watchProviders: {
-                        flatrate: watchProviders.flatrate || [], // Streaming (e.g., Netflix, Disney+)
-                        rent: watchProviders.rent || [], // Rental options
-                        buy: watchProviders.buy || [] // Purchase options
-                    }
-                };
-            } catch (error) {
-                console.error('Error fetching movie details:', error);
-                return null; // Handle error gracefully
+            if (!details || details.error) {
+                console.error('Error fetching movie details:', details?.error || 'No details');
+                return null;
             }
+
+            const watchProviders = providers.results?.IN || providers.results?.US || { flatrate: [], rent: [], buy: [] };
+
+            // Get runtime in minutes (from movieDetails.runtime)
+            const runtimeMinutes = details.runtime || 0;
+            const hours = Math.floor(runtimeMinutes / 60);
+            const minutes = runtimeMinutes % 60;
+
+            // Get director (first crew member with job 'Director')
+            const director = details.credits?.crew?.find(member => member.job === 'Director')?.name || 'No director information available';
+
+            return {
+                title: details.title,
+                posterPath: details.poster_path,
+                backdropPath: details.backdrop_path, // Backdrop image path
+                releaseDate: details.release_date,
+                rating: details.adult ? 'R' : (details.certification || 'PG-13'), // Simplified
+                overview: details.overview,
+                cast: details.credits?.cast?.slice(0, 3).map(actor => actor.name).join(', ') || 'No cast information available',
+                runtime: { hours, minutes },
+                director: director,
+                watchProviders: {
+                    flatrate: watchProviders.flatrate || [], // Streaming (e.g., Netflix, Disney+)
+                    rent: watchProviders.rent || [], // Rental options
+                    buy: watchProviders.buy || [] // Purchase options
+                }
+            };
         }
 
         // Function to start cooking animation and fetch movie list
@@ -543,6 +522,15 @@
                         // Update where to watch section
                         updateWhereToWatch(movie.watchProviders);
 
+                        // Set backdrop image if available
+                        if (movie.backdropPath) {
+                            document.body.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.backdropPath})`;
+                            document.body.classList.add('backdrop');
+                        } else {
+                            document.body.style.backgroundImage = 'none';
+                            document.body.classList.remove('backdrop');
+                        }
+
                         contentSection.style.display = 'flex';
                         navigationButtons.style.display = 'flex';
                         generateRandomSnacks(); // Generate random snacks (1 eatable, 1 drink)
@@ -555,6 +543,9 @@
                         document.querySelector('.container').appendChild(errorMessage);
                         setTimeout(() => errorMessage.remove(), 3000); // Remove error after 3 seconds
                         initialMessage.style.display = 'block'; // Show initial message again
+                        // Reset backdrop if error occurs
+                        document.body.style.backgroundImage = 'none';
+                        document.body.classList.remove('backdrop');
                     }
                 } else {
                     // Show error if no movies are found
@@ -564,6 +555,9 @@
                     document.querySelector('.container').appendChild(errorMessage);
                     setTimeout(() => errorMessage.remove(), 3000); // Remove error after 3 seconds
                     initialMessage.style.display = 'block'; // Show initial message again
+                    // Reset backdrop if no movies are found
+                    document.body.style.backgroundImage = 'none';
+                    document.body.classList.remove('backdrop');
                 }
             }, 2000); // 2 seconds for the animation
         }
@@ -643,6 +637,16 @@
                 document.getElementById('movieCast').textContent = `Cast: ${movie.cast || 'No cast information available'}`;
                 document.getElementById('movieDirector').textContent = `Director: ${movie.director}`;
                 updateWhereToWatch(movie.watchProviders); // Update where to watch for each movie
+
+                // Set backdrop image if available
+                if (movie.backdropPath) {
+                    document.body.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.backdropPath})`;
+                    document.body.classList.add('backdrop');
+                } else {
+                    document.body.style.backgroundImage = 'none';
+                    document.body.classList.remove('backdrop');
+                }
+
                 generateRandomSnacks(); // Generate new random snacks for each movie
             }
         }
@@ -665,7 +669,6 @@
         window.onload = async () => {
             await fetchGenres();
             await fetchLanguages();
-        };
-    </script>
-</body>
-</html>
+       ...
+
+Something went wrong, please try again.
